@@ -1,0 +1,80 @@
+
+// Forex Robot Dude
+// Developer's site: forexroboteasy.com
+// Development: Forex Robot Easy Team
+
+// Define input parameters
+input int Period = 100; // Pre-set period for monitoring price fluctuations
+input double EntryThreshold = 0.005; // Price movement threshold for trade execution
+input int TakeProfit = 50; // Pre-defined take profit in pips
+input int StopLoss = 50; // Pre-defined stop loss in pips
+input int MaxOrderQuantity = 1; // Maximum order quantity
+input bool LotSizeAdjustment = true; // Enable/disable lot size adjustment
+
+// Define global variables
+bool isEntryAllowed = true; // Flag to indicate if entry is allowed
+int orderCount = 0; // Counter for order quantity
+
+// Define trading function
+void Trade()
+{
+   // Check if entry is allowed
+   if(isEntryAllowed)
+   {
+      // Check if price movements surpass entry threshold
+      if(MathAbs(iClose(Symbol(), PERIOD_M5, 0) - iOpen(Symbol(), PERIOD_M5, 0)) > EntryThreshold * _Point ||
+         MathAbs(iClose(Symbol(), PERIOD_M15, 0) - iOpen(Symbol(), PERIOD_M15, 0)) > EntryThreshold * _Point ||
+         MathAbs(iClose(Symbol(), PERIOD_H1, 0) - iOpen(Symbol(), PERIOD_H1, 0)) > EntryThreshold * _Point ||
+         MathAbs(iClose(Symbol(), PERIOD_H4, 0) - iOpen(Symbol(), PERIOD_H4, 0)) > EntryThreshold * _Point)
+      {
+         // Execute trade
+         int ticket = OrderSend(Symbol(), OP_BUY, 0.01, Ask, 0, Bid - StopLoss * _Point, Bid + TakeProfit * _Point, 'Forex Robot Dude', 0, 0, Green);
+         
+         // Check if trade was successful
+         if(ticket > 0)
+         {
+            orderCount++;
+            
+            // Adjust lot size for subsequent entries
+            if(LotSizeAdjustment)
+            {
+               double lotSize = NormalizeDouble(AccountBalance() / 10000, 2);
+               if(lotSize >= 0.01)
+                  lotSize = NormalizeDouble(lotSize, 2);
+               else
+                  lotSize = 0.01;
+               
+               // Set lot size for subsequent orders
+               for(int i = 1; i <= orderCount; i++)
+               {
+                  OrderSelect(i, SELECT_BY_POS, MODE_TRADES);
+                  OrderModify(OrderTicket(), OrderOpenPrice(), lotSize, OrderTakeProfit(), OrderStopLoss(), 0, Green);
+               }
+            }
+         }
+      }
+   }
+}
+
+// Define start function
+void OnStart()
+{
+   // Set pre-set period for monitoring price fluctuations
+   int startTime = Time[0] - Period * 60;
+   
+   // Enable entry logic during pre-set period
+   if(Time[0] > startTime)
+      isEntryAllowed = true;
+   else
+      isEntryAllowed = false;
+   
+   // Execute trade
+   Trade();
+}
+
+// Define deinit function
+void OnDeinit(const int reason)
+{
+   // Print trade summary
+   Print('Total orders executed: ', orderCount);
+}
